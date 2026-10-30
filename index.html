@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Café Stock Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --border: #e3e6eb;
+    --border-strong: #cfd4dc;
+    --text: #1a1f36;
+    --muted: #697386;
+    --subtle: #f0f2f5;
+    --accent: #e0701c;
+    --accent-ink: #ffffff;
+    --accent-soft: #fcefe4;
+    --accent-text: #b4560e;
+    --danger: #b42318;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 1px 3px rgba(16, 24, 40, .06);
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1218;
+      --card: #171b23;
+      --border: #262c37;
+      --border-strong: #353d4a;
+      --text: #e7eaf0;
+      --muted: #8c95a6;
+      --subtle: #1e232d;
+      --accent: #f0832f;
+      --accent-ink: #1a1007;
+      --accent-soft: #3a2614;
+      --accent-text: #f5a462;
+      --danger: #f97066;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.5 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input { font: inherit; color: inherit; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 28px 16px 64px; }
+
+  /* Header */
+  .top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  .top h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -.02em; }
+  .top p { margin: 4px 0 0; color: var(--muted); font-size: 16px; }
+  .top-actions { display: flex; align-items: center; gap: 12px; }
+  .sync { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border-strong); }
+  .sync[data-state="ok"] .dot { background: #3f9d6b; }
+  .sync[data-state="busy"] .dot { background: var(--accent); }
+  .sync[data-state="error"] .dot { background: var(--danger); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--border-strong);
+    background: var(--card); font-size: 15px; font-weight: 600; cursor: pointer; box-shadow: var(--shadow);
+  }
+  .btn:hover:not(:disabled) { border-color: var(--muted); }
+  .btn:disabled { opacity: .45; cursor: default; box-shadow: none; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn.primary:hover:not(:disabled) { filter: brightness(1.05); border-color: var(--accent); }
+  .btn.ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--muted); }
+  .btn.ghost:hover:not(:disabled) { color: var(--text); border-color: transparent; }
+
+  /* KPI tiles */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 16px; margin-bottom: 28px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .kpi { padding: 18px 20px; }
+  .kpi .label { font-size: 15px; color: var(--muted); font-weight: 500; }
+  .kpi .value { font-size: 34px; font-weight: 700; letter-spacing: -.02em; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .kpi .value.accent { color: var(--accent-text); }
+  .kpi .hint { font-size: 14px; color: var(--muted); margin-top: 2px; }
+
+  /* Tabs and chips */
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; overflow-x: auto; overflow-y: hidden; }
+  .tab {
+    border: 0; background: none; padding: 12px 16px; font-size: 18px; font-weight: 600; color: var(--muted);
+    cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .tab:hover { color: var(--text); }
+  .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+  .count { font-size: 13px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--subtle); color: var(--muted); }
+  .count.low { background: var(--accent-soft); color: var(--accent-text); }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border-strong);
+    background: var(--card); font-size: 15px; font-weight: 500; cursor: pointer; color: var(--muted);
+  }
+  .chip[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--card); }
+
+  /* Layout */
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: start; }
+  @media (max-width: 980px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  .stack { display: flex; flex-direction: column; gap: 16px; }
+
+  .cat-head { display: flex; justify-content: space-between; align-items: baseline; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .cat-head h2 { margin: 0; font-size: 19px; font-weight: 600; }
+  .cat-head span { font-size: 15px; color: var(--muted); }
+
+  .item {
+    display: grid; grid-template-columns: minmax(180px, 1fr) auto auto auto; gap: 20px; align-items: center;
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+  }
+  .item:last-child { border-bottom: 0; }
+  .item.dirty { background: var(--subtle); }
+  .name { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .meta { font-size: 15px; color: var(--muted); }
+  .badge { font-size: 13px; font-weight: 700; letter-spacing: .02em; padding: 2px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-text); }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .stepper { display: inline-flex; align-items: stretch; border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; background: var(--card); height: 44px; }
+  .stepper button { width: 42px; border: 0; background: none; font-size: 22px; line-height: 1; cursor: pointer; color: var(--muted); }
+  .stepper button:hover { background: var(--subtle); color: var(--text); }
+  .stepper input {
+    width: 64px; border: 0; border-inline: 1px solid var(--border); text-align: center; font-size: 19px; font-weight: 600;
+    background: none; font-variant-numeric: tabular-nums; -moz-appearance: textfield;
+  }
+  .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .stepper input:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .actions { display: flex; gap: 4px; align-items: center; justify-content: flex-end; min-width: 150px; }
+  .saved-note { font-size: 14px; color: var(--muted); }
+  #items { container-type: inline-size; }
+  @container (max-width: 760px) {
+    .item { grid-template-columns: auto auto 1fr; gap: 14px 20px; }
+    .item .info { grid-column: 1 / -1; }
+    .item .actions { justify-content: flex-end; align-self: end; min-width: 0; }
+  }
+  @container (max-width: 480px) {
+    .item { grid-template-columns: 1fr 1fr; }
+    .item .actions { grid-column: 1 / -1; justify-content: flex-start; }
+  }
+
+  /* Order panel */
+  .order { position: sticky; top: 16px; }
+  .order-head { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .order-head h2 { margin: 0; font-size: 20px; font-weight: 600; }
+  .order-sub { padding: 12px 20px 0; font-size: 15px; color: var(--muted); }
+  .order-list { list-style: none; margin: 0; padding: 8px 0; max-height: 60vh; overflow: auto; }
+  .order-list li { padding: 12px 20px; border-bottom: 1px solid var(--border); }
+  .order-list li:last-child { border-bottom: 0; }
+  .order-line { display: flex; justify-content: space-between; gap: 12px; font-size: 17px; font-weight: 600; }
+  .order-line .qty { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .order-split { font-size: 14px; color: var(--muted); margin-top: 2px; }
+  .order-foot { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; font-size: 15px; color: var(--muted); }
+  .empty { padding: 28px 20px; color: var(--muted); text-align: center; }
+
+  .notice { padding: 16px 20px; margin-bottom: 16px; border-color: var(--danger); color: var(--danger); }
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+    background: var(--text); color: var(--card); padding: 12px 18px; border-radius: 10px; font-size: 15px; font-weight: 500;
+    transition: opacity .2s, transform .2s; max-width: calc(100% - 32px);
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .skeleton { height: 220px; border-radius: var(--radius); background: linear-gradient(90deg, var(--subtle), var(--border), var(--subtle)); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Café stock tracker</h1>
+      <p>Stock and reorder levels for each outlet, saved to Supabase.</p>
+    </div>
+    <div class="top-actions">
+      <span class="sync" id="sync" data-state="busy"><span class="dot"></span><span id="sync-text">Loading…</span></span>
+      <button class="btn" id="refresh" type="button">Refresh</button>
+    </div>
+  </header>
+
+  <div class="card notice" id="error" hidden></div>
+
+  <section class="kpis" aria-label="Summary">
+    <div class="card kpi"><div class="label">Low items, all outlets</div><div class="value accent" id="k-low">–</div><div class="hint">At or below reorder level</div></div>
+    <div class="card kpi"><div class="label" id="k-outlet-label">Low at this outlet</div><div class="value" id="k-outlet">–</div><div class="hint" id="k-outlet-hint">&nbsp;</div></div>
+    <div class="card kpi"><div class="label">Units to order</div><div class="value" id="k-units">–</div><div class="hint" id="k-lines">&nbsp;</div></div>
+    <div class="card kpi"><div class="label">Last count</div><div class="value" id="k-date">–</div><div class="hint">Most recent saved count</div></div>
+  </section>
+
+  <nav class="tabs" role="tablist" id="tabs" aria-label="Outlets"></nav>
+
+  <div class="layout">
+    <main>
+      <div class="toolbar">
+        <div class="chips" id="chips" role="group" aria-label="Filter by category"></div>
+        <button class="btn primary" id="save-all" type="button" disabled>Save all changes</button>
+      </div>
+      <div class="stack" id="items"><div class="skeleton"></div></div>
+    </main>
+
+    <aside class="card order" aria-labelledby="order-title">
+      <div class="order-head">
+        <h2 id="order-title">Order from suppliers</h2>
+        <button class="btn primary" id="copy" type="button" disabled>Copy list</button>
+      </div>
+      <div class="order-sub">Shortfall to bring every outlet back up to its reorder level, totalled across outlets. Uses saved figures.</div>
+      <ul class="order-list" id="order"></ul>
+      <div class="order-foot"><span id="order-count">–</span><span id="order-total">–</span></div>
+    </aside>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+  const SUPABASE_URL = 'https://qhvynlhlcyghrzwlrjgh.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_TDynZpdz1X8PYptYeylpng_8oBZlpsy';
+  const CATEGORY_ORDER = ['Coffee', 'Milk', 'Powders & syrups', 'Bakery', 'Packaging'];
+
+  const state = {
+    rows: [],          // latest saved row per outlet + sku
+    drafts: new Map(), // "outlet|sku" -> {qty, reorder}
+    outlet: null,
+    category: 'All',
+    saving: new Set(),
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const key = (r) => r.outlet_code + '|' + r.sku;
+  const fmt = new Intl.NumberFormat('en-SG');
+  const el = (tag, props = {}, ...children) => {
+    const node = document.createElement(tag);
+    Object.assign(node, props);
+    children.flat().forEach((c) => c != null && node.append(c));
+    return node;
+  };
+
+  async function api(path, options = {}) {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+      ...options,
+      headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json', ...(options.headers || {}) },
+    });
+    const body = await res.text();
+    const data = body ? JSON.parse(body) : null;
+    if (!res.ok) throw new Error((data && (data.message || data.hint)) || res.status + ' ' + res.statusText);
+    return data;
+  }
+
+  function setSync(kind, text) {
+    $('sync').dataset.state = kind;
+    $('sync-text').textContent = text;
+  }
+
+  let toastTimer;
+  function toast(text) {
+    const t = $('toast');
+    t.textContent = text;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+  }
+
+  async function load() {
+    setSync('busy', 'Loading…');
+    try {
+      const rows = await api('latest_stock?select=outlet,outlet_code,sku,item_name,unit,category,qty_on_hand,reorder_level,counted_at&order=outlet.asc,sku.asc');
+      state.rows = rows;
+      const outlets = [...new Set(rows.map((r) => r.outlet_code))];
+      if (!outlets.includes(state.outlet)) state.outlet = outlets[0] || null;
+      $('error').hidden = true;
+      setSync('ok', 'Synced ' + new Date().toLocaleTimeString('en-SG', { hour: 'numeric', minute: '2-digit' }));
+    } catch (err) {
+      $('error').hidden = false;
+      $('error').textContent = 'Could not load stock from Supabase: ' + err.message;
+      setSync('error', 'Not synced');
+    }
+    render();
+  }
+
+  // Current value for an item: unsaved draft first, else saved row.
+  const current = (r) => state.drafts.get(key(r)) || { qty: r.qty_on_hand, reorder: r.reorder_level };
+  const isDirty = (r) => {
+    const d = state.drafts.get(key(r));
+    return !!d && (d.qty !== r.qty_on_hand || d.reorder !== r.reorder_level);
+  };
+  const isLow = (qty, reorder) => qty <= reorder;
+
+  function setDraft(r, patch) {
+    const next = { ...current(r), ...patch };
+    next.qty = Math.max(0, Math.min(100000, Math.round(Number(next.qty) || 0)));
+    next.reorder = Math.max(0, Math.min(100000, Math.round(Number(next.reorder) || 0)));
+    if (next.qty === r.qty_on_hand && next.reorder === r.reorder_level) state.drafts.delete(key(r));
+    else state.drafts.set(key(r), next);
+  }
+
+  async function save(rowsToSave) {
+    if (!rowsToSave.length) return;
+    setSync('busy', 'Saving…');
+    let ok = 0;
+    const failures = [];
+    for (const r of rowsToSave) {
+      const d = current(r);
+      state.saving.add(key(r));
+      renderItems();
+      try {
+        const saved = await api('rpc/save_stock_level', {
+          method: 'POST',
+          body: JSON.stringify({ p_outlet_code: r.outlet_code, p_sku: r.sku, p_qty_on_hand: d.qty, p_reorder_level: d.reorder }),
+        });
+        r.qty_on_hand = saved.qty_on_hand;
+        r.reorder_level = saved.reorder_level;
+        r.counted_at = saved.counted_at;
+        state.drafts.delete(key(r));
+        ok++;
+      } catch (err) {
+        failures.push(r.item_name + ': ' + err.message);
+      } finally {
+        state.saving.delete(key(r));
+      }
+    }
+    if (failures.length) {
+      setSync('error', 'Save failed');
+      toast('Could not save ' + failures.join('; '));
+    } else {
+      setSync('ok', 'Saved ' + new Date().toLocaleTimeString('en-SG', { hour: 'numeric', minute: '2-digit' }));
+      toast(ok === 1 ? 'Saved ' + rowsToSave[0].item_name : 'Saved ' + ok + ' items');
+    }
+    render();
+  }
+
+  function stepper(label, value, onChange) {
+    const id = 'f' + Math.random().toString(36).slice(2, 9);
+    const input = el('input', { id, type: 'number', min: 0, max: 100000, inputMode: 'numeric', value: String(value) });
+    input.addEventListener('change', () => onChange(Number(input.value)));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); });
+    const minus = el('button', { type: 'button', textContent: '−', ariaLabel: 'Decrease ' + label.toLowerCase() });
+    const plus = el('button', { type: 'button', textContent: '+', ariaLabel: 'Increase ' + label.toLowerCase() });
+    minus.addEventListener('click', () => onChange(value - 1));
+    plus.addEventListener('click', () => onChange(value + 1));
+    return el('div', { className: 'field' },
+      el('label', { htmlFor: id, textContent: label }),
+      el('div', { className: 'stepper' }, minus, input, plus));
+  }
+
+  function itemRow(r) {
+    const d = current(r);
+    const dirty = isDirty(r);
+    const saving = state.saving.has(key(r));
+    const name = el('div', { className: 'name' }, el('span', { textContent: r.item_name }));
+    if (isLow(d.qty, d.reorder)) name.append(el('span', { className: 'badge', textContent: 'Low' }));
+
+    const saveBtn = el('button', { type: 'button', className: 'btn primary', textContent: saving ? 'Saving…' : 'Save', disabled: !dirty || saving });
+    saveBtn.addEventListener('click', () => save([r]));
+    const undo = el('button', { type: 'button', className: 'btn ghost', textContent: 'Undo', hidden: !dirty || saving });
+    undo.addEventListener('click', () => { state.drafts.delete(key(r)); render(); });
+
+    return el('div', { className: 'item' + (dirty ? ' dirty' : '') },
+      el('div', { className: 'info' }, name, el('div', { className: 'meta', textContent: r.unit + ' · ' + r.sku })),
+      stepper('In stock', d.qty, (v) => { setDraft(r, { qty: v }); render(); }),
+      stepper('Reorder at', d.reorder, (v) => { setDraft(r, { reorder: v }); render(); }),
+      el('div', { className: 'actions' }, dirty ? undo : el('span', { className: 'saved-note', textContent: 'Saved' }), saveBtn));
+  }
+
+  function categoriesOf(rows) {
+    const cats = [...new Set(rows.map((r) => r.category || 'Other'))];
+    return cats.sort((a, b) => (CATEGORY_ORDER.indexOf(a) + 1 || 99) - (CATEGORY_ORDER.indexOf(b) + 1 || 99) || a.localeCompare(b));
+  }
+
+  function renderTabs() {
+    const outlets = [...new Map(state.rows.map((r) => [r.outlet_code, r.outlet])).entries()];
+    $('tabs').replaceChildren(...outlets.map(([code, name]) => {
+      const low = state.rows.filter((r) => r.outlet_code === code && isLow(r.qty_on_hand, r.reorder_level)).length;
+      const tab = el('button', { type: 'button', className: 'tab', role: 'tab' },
+        el('span', { textContent: name }),
+        el('span', { className: 'count' + (low ? ' low' : ''), textContent: low ? low + ' low' : 'All good' }));
+      tab.setAttribute('aria-selected', String(code === state.outlet));
+      tab.addEventListener('click', () => { state.outlet = code; render(); });
+      return tab;
+    }));
+  }
+
+  function renderChips() {
+    const cats = ['All', ...categoriesOf(state.rows)];
+    if (!cats.includes(state.category)) state.category = 'All';
+    $('chips').replaceChildren(...cats.map((c) => {
+      const chip = el('button', { type: 'button', className: 'chip', textContent: c });
+      chip.setAttribute('aria-pressed', String(c === state.category));
+      chip.addEventListener('click', () => { state.category = c; render(); });
+      return chip;
+    }));
+  }
+
+  function renderItems() {
+    const rows = state.rows.filter((r) => r.outlet_code === state.outlet);
+    const cats = categoriesOf(rows).filter((c) => state.category === 'All' || c === state.category);
+    if (!rows.length) {
+      $('items').replaceChildren(el('div', { className: 'card empty', textContent: 'No items to show.' }));
+    } else {
+      $('items').replaceChildren(...cats.map((c) => {
+        const inCat = rows.filter((r) => (r.category || 'Other') === c);
+        const low = inCat.filter((r) => isLow(r.qty_on_hand, r.reorder_level)).length;
+        return el('section', { className: 'card' },
+          el('div', { className: 'cat-head' }, el('h2', { textContent: c }), el('span', { textContent: inCat.length + ' items' + (low ? ' · ' + low + ' low' : '') })),
+          inCat.map(itemRow));
+      }));
+    }
+    const dirtyHere = rows.filter(isDirty);
+    $('save-all').disabled = !dirtyHere.length || state.saving.size > 0;
+    $('save-all').textContent = dirtyHere.length ? 'Save all changes (' + dirtyHere.length + ')' : 'Save all changes';
+  }
+
+  function orderLines() {
+    const bySku = new Map();
+    for (const r of state.rows) {
+      const short = r.reorder_level - r.qty_on_hand;
+      if (short <= 0) continue;
+      const line = bySku.get(r.sku) || { sku: r.sku, item: r.item_name, unit: r.unit, category: r.category, total: 0, split: [] };
+      line.total += short;
+      line.split.push({ outlet: r.outlet, qty: short });
+      bySku.set(r.sku, line);
+    }
+    return [...bySku.values()].sort((a, b) => a.sku.localeCompare(b.sku));
+  }
+
+  function orderText(lines) {
+    const date = new Date().toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
+    return ['Order from suppliers – ' + date, '']
+      .concat(lines.map((l) => '- ' + l.item + ': ' + l.total + ' ' + l.unit + ' (' + l.split.map((s) => s.outlet + ' ' + s.qty).join(', ') + ')'))
+      .join('\n');
+  }
+
+  function renderOrder() {
+    const lines = orderLines();
+    const total = lines.reduce((a, l) => a + l.total, 0);
+    $('order').replaceChildren(...(lines.length ? lines.map((l) => el('li', {},
+      el('div', { className: 'order-line' }, el('span', { textContent: l.item }), el('span', { className: 'qty', textContent: fmt.format(l.total) + ' ' + l.unit })),
+      el('div', { className: 'order-split', textContent: l.split.map((s) => s.outlet + ' ' + s.qty).join(' · ') }))) :
+      [el('li', { className: 'empty', textContent: 'Nothing to order. Every outlet is at or above its reorder levels.' })]));
+    $('order-count').textContent = lines.length + (lines.length === 1 ? ' item' : ' items');
+    $('order-total').textContent = fmt.format(total) + ' units';
+    $('copy').disabled = !lines.length;
+    return { lines, total };
+  }
+
+  function renderKpis(order) {
+    const lowAll = state.rows.filter((r) => isLow(r.qty_on_hand, r.reorder_level)).length;
+    const here = state.rows.filter((r) => r.outlet_code === state.outlet);
+    const lowHere = here.filter((r) => isLow(r.qty_on_hand, r.reorder_level)).length;
+    const outletName = here[0] ? here[0].outlet : '';
+    $('k-low').textContent = state.rows.length ? fmt.format(lowAll) : '–';
+    $('k-outlet-label').textContent = outletName ? 'Low at ' + outletName : 'Low at this outlet';
+    $('k-outlet').textContent = here.length ? fmt.format(lowHere) : '–';
+    $('k-outlet-hint').textContent = here.length ? 'of ' + here.length + ' items' : ' ';
+    $('k-units').textContent = state.rows.length ? fmt.format(order.total) : '–';
+    $('k-lines').textContent = state.rows.length ? 'across ' + order.lines.length + ' items' : ' ';
+    const last = state.rows.map((r) => r.counted_at).sort().pop();
+    $('k-date').textContent = last ? new Date(last + 'T00:00:00').toLocaleDateString('en-SG', { day: 'numeric', month: 'short' }) : '–';
+  }
+
+  function render() {
+    renderTabs();
+    renderChips();
+    renderItems();
+    renderKpis(renderOrder());
+  }
+
+  $('refresh').addEventListener('click', () => {
+    if (state.drafts.size && !confirm('Discard unsaved changes and reload from Supabase?')) return;
+    state.drafts.clear();
+    load();
+  });
+  $('save-all').addEventListener('click', () => save(state.rows.filter((r) => r.outlet_code === state.outlet && isDirty(r))));
+  $('copy').addEventListener('click', async () => {
+    const text = orderText(orderLines());
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = el('textarea', { value: text });
+      document.body.append(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    toast('Order list copied');
+  });
+  window.addEventListener('beforeunload', (e) => { if (state.drafts.size) { e.preventDefault(); e.returnValue = ''; } });
+
+  load();
+</script>
+</body>
+</html>
